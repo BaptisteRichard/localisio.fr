@@ -112,7 +112,8 @@ function showPathToNearestCycleParkWithPos(lat, lon, lat_to=null, lon_to=null)
 		for (parkingNode of listOfShortestParkNode)
 		{
 			// store all bicycle parking in a list
-			urlTabForCycleParkPath.push('https://api.openrouteservice.org/v2/directions/foot-walking?api_key='+API_OPENROUTE_KEY + '&start='+currentPos[1] + ','+ currentPos[0] + '&end='+parkingNode.lon + ',' + parkingNode.lat);
+			//urlTabForCycleParkPath.push('https://api.openrouteservice.org/v2/directions/foot-walking?api_key='+API_OPENROUTE_KEY + '&start='+currentPos[1] + ','+ currentPos[0] + '&end='+parkingNode.lon + ',' + parkingNode.lat);
+			urlTabForCycleParkPath.push('http://router.project-osrm.org/route/v1/driving/'+currentPos[1]+','+currentPos[0]+';'+parkingNode.lon+','+parkingNode.lat+'?geometries=geojson');
 		}
 		Promise.all(urlTabForCycleParkPath.map(url =>
 		fetch(url)
@@ -126,7 +127,8 @@ function showPathToNearestCycleParkWithPos(lat, lon, lat_to=null, lon_to=null)
 			let nearestPath = null;
 			for (path of data)
 			{
-				dist = path.features[0].properties.summary['distance'];
+				//dist = path.features[0].properties.summary['distance'];
+				dist = path.routes[0].distance;
 				if (dist<maxDist)
 				{
 					maxDist = dist;	
@@ -134,7 +136,8 @@ function showPathToNearestCycleParkWithPos(lat, lon, lat_to=null, lon_to=null)
 				}
 			}
 			
-			nearestPath = horizontalFlip(nearestPath.features[0].geometry.coordinates);
+			//nearestPath = horizontalFlip(nearestPath.features[0].geometry.coordinates);
+			nearestPath = horizontalFlip(nearestPath.routes[0].geometry.coordinates);
 			cycleParkPos = nearestPath[nearestPath.length - 1] // het the shortest
 			// create empty map
 			macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
