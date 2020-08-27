@@ -22,3 +22,8 @@ img {
 	margin-right:20%;
 	min-width:60%;
 }
+
+.left-button {
+  height: 100%;
+  width: 100%;  
+}

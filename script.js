@@ -9,7 +9,9 @@ const BICYCLE_PARKING_ICON = L.icon({
   iconSize: [32, 32], // size of the icon
 });
 
-function showPathToNearestCyclePark(lat_to = null, lon_to = null) {
+var macarte = null;
+
+function showPathToNearestCyclePark() {
   // before showing the map, show a gif
   fillMapInnerHTML("<img src=\"loader.gif\" />");
 
@@ -50,7 +52,6 @@ function clearMap() {
 }
 
 async function showPathToNearestCycleParkWithPos(lat, lon) {
-  let macarte = null;
   const currentPos = [lat, lon]; // current position
   boundingBox = getBoundingBox(currentPos, SEARCH_DIST_KM); // 200m autour de moi
 
@@ -82,7 +83,7 @@ async function showPathToNearestCycleParkWithPos(lat, lon) {
   listOfShortestParkNode = [];
   const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
 
-  items.slice(-maxNbOfPark).forEach(function(parkingNode) {
+  items.slice(-maxNbOfPark).forEach(parkingNode => {
     urlTabForCycleParkPath.push(OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat);
   });
 
@@ -98,7 +99,7 @@ async function showPathToNearestCycleParkWithPos(lat, lon) {
       data.sort((a, b) => a.features[0].properties.summary.distance - b.features[0].properties.summary.distance)
       const maxDist = data[0].features[0].properties.summary.distance; // 10 km.
       const nearestPath = data[0].features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
-      cycleParkPos = nearestPath[nearestPath.length - 1] // het the shortest
+      cycleParkPos = nearestPath[nearestPath.length - 1] // get the shortest
       // create empty map
       macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
 
@@ -123,8 +124,6 @@ async function showPathToNearestCycleParkWithPos(lat, lon) {
       macarte.fitBounds(polyline.getBounds());
       macarte.zoomOut();
     })
-
-
 }
 
 
@@ -138,6 +137,12 @@ function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
     minZoom: 1,
     maxZoom: 20
   }).addTo(macarte);
+
+  L.easyButton('<img class="left-button" src="reload.svg" >', (btn, map) => {
+      macarte.off();
+      macarte.remove();
+      showPathToNearestCyclePark()
+  }).addTo( macarte )
 
   let marker = L.marker(currentPos).addTo(macarte);
   if (popupTitle.length > 0)
