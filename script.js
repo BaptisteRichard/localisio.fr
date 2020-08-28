@@ -1,6 +1,6 @@
 const API_OPENROUTE_KEY = '5b3ce3597851110001cf6248cd3d2eb78aa149a3bbde26f73a2b5dfd';
 const OVERPASS_API = 'https://z.overpass-api.de/api/interpreter?data=[out:json];node[%22amenity%22=%22bicycle_parking%22]'
-const SEARCH_DIST_KM = 0.2
+const SEARCH_DIST_KM = 0.5
 const NUMBER_OF_COMPUTED_PATH = 5
 const OPENROUTE_API = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
 
@@ -9,7 +9,14 @@ const BICYCLE_PARKING_ICON = L.icon({
   iconSize: [32, 32], // size of the icon
 });
 
+const POLYLINE_OPTIONS = {
+  color: 'red',
+  weight: 4,
+  opacity: 0.7
+};
+
 var macarte = null;
+var markerlist = []
 
 function showPathToNearestCyclePark() {
   // before showing the map, show a gif
@@ -19,7 +26,7 @@ function showPathToNearestCyclePark() {
     const location_timeout = setTimeout("geolocFail()", 5000);
     const geoOptions = {
       enableHighAccuracy: false,
-      maximumAge: 10000,
+      maximumAge: 5000,
       timeout: 5000
     };
 
@@ -44,7 +51,7 @@ function fillMapInnerHTML(htmlString) {
 }
 
 function geolocFail() {
-  fillMapInnerHTML('<div class=\"no-gps\">GPS non activé !</div>');
+  fillMapInnerHTML('<div class=\"no-gps\">GPS non activé !</div><button class=\"refresh_button\" onclick=\"showPathToNearestCyclePark()\">Relancer</button>');
 }
 
 function clearMap() {
@@ -83,53 +90,59 @@ async function showPathToNearestCycleParkWithPos(lat, lon) {
   listOfShortestParkNode = [];
   const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
 
-  items.slice(-maxNbOfPark).forEach(parkingNode => {
-    urlTabForCycleParkPath.push(OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat);
-  });
+  // create empty map
+  macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
 
-  Promise.all(urlTabForCycleParkPath.map(url =>
-      fetch(url)
-      .then(checkStatus)
-      .then(parseJSON)
-      .catch(error => console.log('There was a problem!', error))
-    ))
-    .then(data => {
+  // get the last maxNbOfPark element
+  for (parkingNode of items.slice(-maxNbOfPark)) {
+    const openrouteUrl = OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat
+    const response = await fetch(openrouteUrl);
+    const osmDataAsJson = await response.json(); // read response body and parse as JSON
+    //const dist = osmDataAsJson[0].features[0].properties.summary.distance;
+    const dist = osmDataAsJson.features[0].properties.summary.distance;
+    const nearestPath = osmDataAsJson.features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
+    const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
+    const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
+    const markerCyclePark = L.marker(cycleParkPos, {
+      icon: BICYCLE_PARKING_ICON, polyline: polyline, distance:dist
+    }).addTo(macarte);
+    const CycleParkTitle = 'Distance : ' + dist + 'm';
+    const offsetPopup = L.point(0, -10);
+    markerCyclePark.bindPopup(CycleParkTitle, {
+      'offset': offsetPopup
+    });
 
-      // sort data by distance and get the shortest path
-      data.sort((a, b) => a.features[0].properties.summary.distance - b.features[0].properties.summary.distance)
-      const maxDist = data[0].features[0].properties.summary.distance; // 10 km.
-      const nearestPath = data[0].features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
-      cycleParkPos = nearestPath[nearestPath.length - 1] // get the shortest
-      // create empty map
-      macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
+    markerCyclePark.on("click", e => {
+      // on commence par virer tous les polylines
+      markerlist.forEach( item => {
+        if (macarte.hasLayer(item.options.polyline)) {
+          macarte.removeLayer(item.options.polyline)
+        }
+      });
+      // on ajoute ensuite le layer et on tente de le centrer
+      macarte.addLayer(e.target.options.polyline)
+      macarte.flyToBounds(e.target.options.polyline.getBounds(), {padding: [100,100]});
+      e.target.openPopup()
 
-      const markerCyclePark = L.marker(cycleParkPos, {
-        icon: BICYCLE_PARKING_ICON
-      }).addTo(macarte);
-      const CycleParkTitle = 'Distance : ' + maxDist + 'm';
-      const offsetPopup = L.point(0, -10);
-      markerCyclePark.bindPopup(CycleParkTitle, {
-        'offset': offsetPopup
-      }).openPopup();
-
-      const polylineOptions = {
-        color: 'red',
-        weight: 4,
-        opacity: 0.7
-      };
-
-      const polyline = new L.Polyline(nearestPath, polylineOptions);
-      macarte.addLayer(polyline);
-      // zoom the map to the polyline
-      macarte.fitBounds(polyline.getBounds());
-      macarte.zoomOut();
-    })
+    });
+    markerlist.push(markerCyclePark)
+  }
+  // sort marker list
+  markerlist.sort((a, b) => a.options.distance - b.options.distance)
+  // show shortest path
+  macarte.addLayer(markerlist[0].options.polyline)
+  macarte.flyToBounds(markerlist[0].options.polyline.getBounds(), {padding: [100,100]});
+  markerlist[0].openPopup()
 }
 
 
 function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
+  // Clean all
   clearMap();
-  macarte = L.map('map').setView(currentPos, 13);
+
+  // put mini zoom to avoid error when fitbounds + zoomOut
+  macarte = L.map('map').setView(currentPos, 17);
+
   // Leaflet ne récupère pas les cartes (tiles) sur un serveur par défaut. Nous devons lui préciser où nous souhaitons les récupérer. Ici, openstreetmap.fr
   L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
     // Il est toujours bien de laisser le lien vers la source des données
@@ -139,7 +152,10 @@ function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
   }).addTo(macarte);
 
   L.easyButton('<img class="left-button" src="reload.svg" >', (btn, map) => {
-      macarte.off();
+      markerlist.forEach( item => {
+      if (macarte.hasLayer(item.options.polyline)) {
+        macarte.removeLayer(item.options.polyline)
+      }});
       macarte.remove();
       showPathToNearestCyclePark()
   }).addTo( macarte )

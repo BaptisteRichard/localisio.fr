@@ -17,7 +17,8 @@ img {
 .no-gps {
 	line-height: 2.5;
 	font-size: 1.5rem;
-    text-align: center;
+  text-align: center;
+  margin-top:5%;
 	margin-left:20%;
 	margin-right:20%;
 	min-width:60%;
@@ -25,5 +26,18 @@ img {
 
 .left-button {
   height: 100%;
-  width: 100%;  
+  width: 100%;
+}
+
+.refresh_button {
+  line-height: 2.5;
+  background-color: #004eca;
+  color: #FFF;
+  border-radius: 5px;
+	font-size: 1.5rem;
+  text-align: center;
+  margin-top:5%;
+	margin-left:40%;
+	margin-right:40%;
+	min-width:20%;
 }
