@@ -7,7 +7,7 @@ const OPENROUTE_API = 'https://api.openrouteservice.org/v2/directions/foot-walki
 const API_MAPBOX_KEY = "pk.eyJ1IjoiemFzc2VuaGF1cyIsImEiOiJja2U5enhtZ3owNXZrMzRuemhpN25yZmkzIn0.KkggELpXo_BOKu7IwXK4DA"
 const MAPBOX_API_CYCLING = "https://api.mapbox.com/directions/v5/mapbox/cycling/"
 const MAPBOX_API_WALKING = "https://api.mapbox.com/directions/v5/mapbox/walking/"
-const MABOX_PARAMETERS = "?access_token=" + API_MAPBOX_KEY + "&geometries=geojson"
+const MAPBOX_PARAMETERS = "?access_token=" + API_MAPBOX_KEY + "&geometries=geojson"
 
 /*const OPENROUTE_API_WALK = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
 const OPENROUTE_API_CYCLE = 'https://api.openrouteservice.org/v2/directions/cycling-road?api_key=' + API_OPENROUTE_KEY + '&start='*/
@@ -199,7 +199,7 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isW
 		shortestParkingNodeDict[haversineInMeters(destinationPos[0], destinationPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
 	});
 
-	let items = Object.keys(shortestParkingNodeDict).map((key) => [key, shortestParkingNodeDict[key]]);
+	let items = Object.keys(shortestParkingNodeDict).map(key => [key, shortestParkingNodeDict[key]]);
 
 	// Sort the array based on the first element
 	items.sort((first, second) => second[0] - first[0]);
@@ -211,11 +211,11 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isW
 	// add marker on current position
 	let marker = L.marker(currentPos).addTo(map);
 
-	const mapboxurl_engine = ((isWalking) ? MAPBOX_API_WALKING : MAPBOX_API_CYCLING);
+	const mapboxurl_engine = (isWalking) ? MAPBOX_API_WALKING : MAPBOX_API_CYCLING;
 
 	// get the last maxNbOfPark element
 	for (parkingNode of items.slice(-maxNbOfPark)) {
-		const mapboxUrl = mapboxurl_engine + currentPos[1] + ',' + currentPos[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat + MABOX_PARAMETERS;
+		const mapboxUrl = mapboxurl_engine + currentPos[1] + ',' + currentPos[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat + MAPBOX_PARAMETERS;
 		const response = await fetch(mapboxUrl);
 		const osmDataAsJson = await response.json(); // read response body and parse as JSON
 		const dist = osmDataAsJson.routes[0].distance;
@@ -225,7 +225,7 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isW
 		const markerCyclePark = L.marker(cycleParkPos, {
 			icon: BICYCLE_PARKING_ICON,
 			polyline: polyline,
-			distance: dist
+			distance: parkingNode[0]
 		}).addTo(map);
 		const CycleParkTitle = 'Distance : ' + dist + 'm';
 		const offsetPopup = L.point(0, -10);
