@@ -1,43 +1,69 @@
 /* For all devices: */
 body {
-    padding: 0;
-    margin: 0;
-}
-html, body, #map {
-    height: 100%;
-    width: 100vw;
+  padding: 0;
+  margin: 0;
 }
 
-img {
-	display: block;
-	margin-left: auto;
-	margin-right: auto;
+html, body {
+  height: 100%;
+  width: 100vw;
 }
 
-.no-gps {
-	line-height: 2.5;
-	font-size: 1.5rem;
-  text-align: center;
-  margin-top:5%;
-	margin-left:20%;
-	margin-right:20%;
-	min-width:60%;
+#map {
+  height: 100%;
+  width: 100vw;
+  z-index: 1;
 }
 
-.left-button {
+#menu {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  width: 100vw;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  background-color: rgba(200, 200, 200, 0.7);
+}
+
+.myButton {
+  box-shadow: 3px 4px 0px 0px #1564ad;
+  background: linear-gradient(to bottom, #004eca 5%, #378de5 100%);
+  background-color: #004eca;
+  border-radius: 5px;
+  border: 1px solid #337bc4;
+  cursor: pointer;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 15px 15px;
+  width: 20vw;
+  height: 20vw;
+  margin-top: 10vh;
+}
+
+.back_button {
   height: 100%;
   width: 100%;
 }
 
-.refresh_button {
+button {
+  padding: 5px;
+}
+
+.no-gps {
   line-height: 2.5;
-  background-color: #004eca;
-  color: #FFF;
-  border-radius: 5px;
-	font-size: 1.5rem;
+  font-size: 1.5rem;
   text-align: center;
-  margin-top:5%;
-	margin-left:40%;
-	margin-right:40%;
-	min-width:20%;
+  margin-top: 5%;
+  margin-left: 20%;
+  margin-right: 20%;
+  min-width: 60%;
+}
+
+.refresh_button {
+  margin-top: 15vh;
 }

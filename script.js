@@ -1,8 +1,16 @@
 const API_OPENROUTE_KEY = '5b3ce3597851110001cf6248cd3d2eb78aa149a3bbde26f73a2b5dfd';
 const OVERPASS_API = 'https://z.overpass-api.de/api/interpreter?data=[out:json];node[%22amenity%22=%22bicycle_parking%22]'
-const SEARCH_DIST_KM = 0.5
+const SEARCH_DIST_KM = 0.25
 const NUMBER_OF_COMPUTED_PATH = 5
 const OPENROUTE_API = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
+
+const API_MAPBOX_KEY = "pk.eyJ1IjoiemFzc2VuaGF1cyIsImEiOiJja2U5enhtZ3owNXZrMzRuemhpN25yZmkzIn0.KkggELpXo_BOKu7IwXK4DA"
+const MAPBOX_API_CYCLING = "https://api.mapbox.com/directions/v5/mapbox/cycling/"
+const MAPBOX_API_WALKING = "https://api.mapbox.com/directions/v5/mapbox/walking/"
+const MABOX_PARAMETERS = "?access_token=" + API_MAPBOX_KEY + "&geometries=geojson"
+
+/*const OPENROUTE_API_WALK = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
+const OPENROUTE_API_CYCLE = 'https://api.openrouteservice.org/v2/directions/cycling-road?api_key=' + API_OPENROUTE_KEY + '&start='*/
 
 const BICYCLE_PARKING_ICON = L.icon({
 	iconUrl: '240px-Parking-bicycle-16.svg.png',
@@ -15,28 +23,37 @@ const POLYLINE_OPTIONS = {
 	opacity: 0.7
 };
 
-var macarte = null;
+var lat_from = 0;
+var lon_from = 0;
+var map = null;
+var valid_button = null;
 var markerlist = []
+var center_marker = null
 
-function showPathToNearestCyclePark() {
-	// before showing the map, show a gif
-	fillMapInnerHTML("<img src=\"loader.gif\" />");
+/**
+ * @description
+ *   Lance la demande de localisation pour la session en cours
+ *   Lancée automatiquement avec le onload du body
+ * @author Pierre Adam
+ */
+function initialize() {
+	document.getElementById('map').innerHTML = ""
+	let menu_id = document.getElementById("menu");
+	menu_id.style.display = "flex";
 
 	if (navigator.geolocation) {
 		const location_timeout = setTimeout("geolocFail()", 5000);
 		const geoOptions = {
 			enableHighAccuracy: false,
-			maximumAge: 5000,
+			maximumAge: 10000,
 			timeout: 5000
 		};
 
 		navigator.geolocation.getCurrentPosition(position => {
 			clearTimeout(location_timeout);
-			const lat_from = position.coords.latitude;
-			const lon_from = position.coords.longitude;
-			const lat_to = lat_from;
-			const lon_to = lon_from;
-			showPathToNearestCycleParkWithPos([lat_from, lon_from], [lat_to, lat_to]);
+			lat_from = position.coords.latitude;
+			lon_from = position.coords.longitude;
+			showMap([lat_from, lon_from])
 		}, function (error) {
 			clearTimeout(location_timeout);
 			geolocFail();
@@ -45,24 +62,123 @@ function showPathToNearestCyclePark() {
 		// Fallback for no geolocation
 		geolocFail();
 	}
+}
+
+
+/**
+ * @description
+ *   Nettoie la carte en supprimant tous les layers sauf les tiles
+ *   vide le "cache" de marker
+ * @author Pierre Adam
+ */
+function clear_all_map() {
+	map.eachLayer(layer => {
+		if (!(layer.hasOwnProperty("_url"))) {
+			map.removeLayer(layer);
+		}
+	});
+	valid_button.button.style.display = "none"
+	map.setView([lat_from, lon_from], 17);
+	hide_show()
+	markerlist = []
+}
+
+/**
+ * @param {array} currentPos position actuelle du telephone
+ * @description
+ *   Affiche la carte, crée et ajoute le bouton "retour" et crééele bouton "validation"
+ * @author Pierre Adam
+ */
+function showMap(currentPos) {
+	map = L.map('map').setView(currentPos, 17);
+	L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+		// Il est toujours bien de laisser le lien vers la source des données
+		attribution: 'données © <a href="//osm.org/copyright">OpenStreetMap</a>/ODbL - rendu <a href="//openstreetmap.fr">OSM France</a>',
+		minZoom: 1,
+		maxZoom: 20
+	}).addTo(map);
+
+	L.easyButton('<img class="back_button" src="back.svg" >', (btn, map) => {
+		clear_all_map()
+	}).addTo(map)
+
+	valid_button = L.easyButton('<img class="valid_button" src="check.svg" >', (btn, map) => {
+		const destinationPos = [map.getCenter().lat, map.getCenter().lng]
+		showPathToNearestCycleParkWithPos([lat_from, lon_from], destinationPos, false)
+		map.removeLayer(center_marker)
+		btn.button.style.display = "none"
+	}).addTo(map)
+	valid_button.button.style.display = "none"
 
 }
 
-function fillMapInnerHTML(htmlString) {
-	document.getElementById('map').innerHTML = htmlString;
-}
-
+/**
+ * @description
+ *   Affiche un message d'erreur signifiant que le GPS n'est pas activé.
+ * @author Pierre Adam
+ */
 function geolocFail() {
-	fillMapInnerHTML('<div class=\"no-gps\">GPS non activé !</div><button class=\"refresh_button\" onclick=\"showPathToNearestCyclePark()\">Relancer</button>');
+	let menu_id = document.getElementById("menu");
+	menu_id.style.display = "none";
+	document.getElementById('map').innerHTML = '<div class=\"no-gps\">GPS non activé !</div><div id=\"menu\"><img class=\"myButton refresh_button\" src=\"reload.svg\" onclick=\"initialize()\" /></div>';
 }
 
-function clearMap() {
-	fillMapInnerHTML('');
+/**
+ * @description
+ *   Affiche / cache les boutton du menu
+ * @author Pierre Adam
+ */
+function hide_show() {
+	//document.getElementById('map').innerHTML = ""
+	let menu_id = document.getElementById("menu");
+	if (menu_id.style.display != "none") {
+		menu_id.style.display = "none";
+	} else {
+		menu_id.style.display = "flex";
+	}
 }
 
-async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
-	//const currentPos = [lat, lon]; // current position
-	boundingBox = getBoundingBox(currentPos, SEARCH_DIST_KM); // 200m autour de moi
+/**
+ * @description
+ *   Ouvre la carte pour la selection du point de destination et lance le calcul
+ *   de la position actuelle vers la destination demandee
+ * @author Pierre Adam
+ */
+async function cycle_park_near_pos() {
+	hide_show()
+	center_marker = L.marker(map.getCenter()).addTo(map);
+	const currentPos = [lat_from, lon_from]
+	map.on('drag', function (e) {
+		center_marker.setLatLng(map.getCenter());
+	});
+	map.on('zoom', function (e) {
+		center_marker.setLatLng(map.getCenter());
+	});
+	valid_button.button.style.display = ""
+}
+
+/**
+ * @description
+ *   Lance le calcul pour la recherche d'arceaux autour de soi
+ * @author Pierre Adam
+ */
+async function cycle_park_near_me() {
+	hide_show()
+	const currentPos = [lat_from, lon_from]
+	await showPathToNearestCycleParkWithPos(currentPos, currentPos, true)
+}
+
+/**
+ * @param {Array} currentPos position actuelle
+ * @param {Array} destinationPos position de la destination
+ * @param {boolean} isWalking use openRouteService with walk options or not (bike)
+ * @description
+ *   Calcule le trajet depuis la position courante vers la destination.
+ *   Trace au max 5 routes pour y aller.
+ * @author Pierre Adam
+ */
+async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isWalking = true) {
+	boundingBox = getBoundingBox(destinationPos, SEARCH_DIST_KM); // 200m autour de la destination
 
 	const overpassUrl = OVERPASS_API + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
 	const response = await fetch(overpassUrl);
@@ -71,16 +187,16 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
 	// pas de parking à vélo à 200m à la ronde, ben tant pis !
 	if (osmDataAsJson.elements.length == 0) {
 		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * SEARCH_DIST_KM + 'm'
-		macarte = createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle);
+		//macarte = createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle);
+		let marker = L.marker(destinationPos).addTo(map).bindPopup(popupTitle).openPopup();
+		map.setView(destinationPos, 17);
 		return;
 	}
-
-	urlTabForCycleParkPath = [];
 
 	// on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.
 	shortestParkingNodeDict = {};
 	osmDataAsJson.elements.forEach((parkingNode, i) => {
-		shortestParkingNodeDict[haversineInMeters(currentPos[0], currentPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
+		shortestParkingNodeDict[haversineInMeters(destinationPos[0], destinationPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
 	});
 
 	let items = Object.keys(shortestParkingNodeDict).map((key) => [key, shortestParkingNodeDict[key]]);
@@ -92,24 +208,25 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
 	listOfShortestParkNode = [];
 	const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
 
-	// create empty map
-	macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
+	// add marker on current position
+	let marker = L.marker(currentPos).addTo(map);
+
+	const mapboxurl_engine = ((isWalking) ? MAPBOX_API_WALKING : MAPBOX_API_CYCLING);
 
 	// get the last maxNbOfPark element
 	for (parkingNode of items.slice(-maxNbOfPark)) {
-		const openrouteUrl = OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat
-		const response = await fetch(openrouteUrl);
+		const mapboxUrl = mapboxurl_engine + currentPos[1] + ',' + currentPos[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat + MABOX_PARAMETERS;
+		const response = await fetch(mapboxUrl);
 		const osmDataAsJson = await response.json(); // read response body and parse as JSON
-		//const dist = osmDataAsJson[0].features[0].properties.summary.distance;
-		const dist = osmDataAsJson.features[0].properties.summary.distance;
-		const nearestPath = osmDataAsJson.features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
+		const dist = osmDataAsJson.routes[0].distance;
+		const nearestPath = osmDataAsJson.routes[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
 		const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
 		const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
 		const markerCyclePark = L.marker(cycleParkPos, {
 			icon: BICYCLE_PARKING_ICON,
 			polyline: polyline,
 			distance: dist
-		}).addTo(macarte);
+		}).addTo(map);
 		const CycleParkTitle = 'Distance : ' + dist + 'm';
 		const offsetPopup = L.point(0, -10);
 		markerCyclePark.bindPopup(CycleParkTitle, {
@@ -119,13 +236,13 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
 		markerCyclePark.on("click", e => {
 			// on commence par virer tous les polylines
 			markerlist.forEach(item => {
-				if (macarte.hasLayer(item.options.polyline)) {
-					macarte.removeLayer(item.options.polyline)
+				if (map.hasLayer(item.options.polyline)) {
+					map.removeLayer(item.options.polyline)
 				}
 			});
 			// on ajoute ensuite le layer et on tente de le centrer
-			macarte.addLayer(e.target.options.polyline)
-			macarte.flyToBounds(e.target.options.polyline.getBounds(), {
+			map.addLayer(e.target.options.polyline)
+			map.flyToBounds(e.target.options.polyline.getBounds(), {
 				padding: [100, 100]
 			});
 			e.target.openPopup()
@@ -136,65 +253,16 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
 	// sort marker list
 	markerlist.sort((a, b) => a.options.distance - b.options.distance)
 	// show shortest path
-	macarte.addLayer(markerlist[0].options.polyline)
-	macarte.flyToBounds(markerlist[0].options.polyline.getBounds(), {
+	map.addLayer(markerlist[0].options.polyline)
+	map.flyToBounds(markerlist[0].options.polyline.getBounds(), {
 		padding: [100, 100]
 	});
 	markerlist[0].openPopup()
 }
 
-
-function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
-	// Clean all
-	clearMap();
-
-	// put mini zoom to avoid error when fitbounds + zoomOut
-	macarte = L.map('map').setView(currentPos, 17);
-
-	// Leaflet ne récupère pas les cartes (tiles) sur un serveur par défaut. Nous devons lui préciser où nous souhaitons les récupérer. Ici, openstreetmap.fr
-	L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-		// Il est toujours bien de laisser le lien vers la source des données
-		attribution: 'données © <a href="//osm.org/copyright">OpenStreetMap</a>/ODbL - rendu <a href="//openstreetmap.fr">OSM France</a>',
-		minZoom: 1,
-		maxZoom: 20
-	}).addTo(macarte);
-
-	const button = L.easyButton('<img class="left-button" src="reload.svg" >', (btn, map) => {
-		// remove all layer
-		macarte.eachLayer(layer => {
-			macarte.removeLayer(layer);
-		});
-		macarte.remove();
-		showPathToNearestCyclePark()
-	}).addTo(macarte)
-
-	let marker = L.marker(currentPos).addTo(macarte);
-	if (popupTitle.length > 0)
-		marker.bindPopup(popupTitle).openPopup();
-	return macarte;
-}
-
 // ------------------------------------------
 //  HELPER FUNCTIONS
 // ------------------------------------------
-
-function checkStatus(response) {
-	if (response.ok) {
-		return Promise.resolve(response);
-	} else {
-		return Promise.reject(new Error(response.statusText));
-	}
-}
-
-/**
- * @param {object}
- * @return json result
- */
-function parseJSON(response) {
-	return response.json();
-}
-
-
 
 /**
  * @param {array} centerPoint - two-dimensional array containing center coords [latitude, longitude]
@@ -266,7 +334,11 @@ function getBoundingBox(centerPoint, distance) {
   ];
 };
 
-
+/**
+ * @description
+ *   Calcul la distance en metres entre deux positions gps
+ * @author Pierre Adam
+ */
 function haversineInMeters() {
 	const radians = Array.prototype.map.call(arguments, function (deg) {
 		return deg / 180.0 * Math.PI;
