@@ -5,165 +5,173 @@ const NUMBER_OF_COMPUTED_PATH = 5
 const OPENROUTE_API = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
 
 const BICYCLE_PARKING_ICON = L.icon({
-  iconUrl: '240px-Parking-bicycle-16.svg.png',
-  iconSize: [32, 32], // size of the icon
+	iconUrl: '240px-Parking-bicycle-16.svg.png',
+	iconSize: [32, 32], // size of the icon
 });
 
 const POLYLINE_OPTIONS = {
-  color: 'red',
-  weight: 4,
-  opacity: 0.7
+	color: 'red',
+	weight: 4,
+	opacity: 0.7
 };
 
 var macarte = null;
 var markerlist = []
 
 function showPathToNearestCyclePark() {
-  // before showing the map, show a gif
-  fillMapInnerHTML("<img src=\"loader.gif\" />");
+	// before showing the map, show a gif
+	fillMapInnerHTML("<img src=\"loader.gif\" />");
 
-  if (navigator.geolocation) {
-    const location_timeout = setTimeout("geolocFail()", 5000);
-    const geoOptions = {
-      enableHighAccuracy: false,
-      maximumAge: 5000,
-      timeout: 5000
-    };
+	if (navigator.geolocation) {
+		const location_timeout = setTimeout("geolocFail()", 5000);
+		const geoOptions = {
+			enableHighAccuracy: false,
+			maximumAge: 5000,
+			timeout: 5000
+		};
 
-    navigator.geolocation.getCurrentPosition(position => {
-      clearTimeout(location_timeout);
-      const lat_from = position.coords.latitude;
-      const lon_from = position.coords.longitude;
-      showPathToNearestCycleParkWithPos(lat_from, lon_from);
-    }, function(error) {
-      clearTimeout(location_timeout);
-      geolocFail();
-    }, geoOptions);
-  } else {
-    // Fallback for no geolocation
-    geolocFail();
-  }
+		navigator.geolocation.getCurrentPosition(position => {
+			clearTimeout(location_timeout);
+			const lat_from = position.coords.latitude;
+			const lon_from = position.coords.longitude;
+			const lat_to = lat_from;
+			const lon_to = lon_from;
+			showPathToNearestCycleParkWithPos([lat_from, lon_from], [lat_to, lat_to]);
+		}, function (error) {
+			clearTimeout(location_timeout);
+			geolocFail();
+		}, geoOptions);
+	} else {
+		// Fallback for no geolocation
+		geolocFail();
+	}
 
 }
 
 function fillMapInnerHTML(htmlString) {
-  document.getElementById('map').innerHTML = htmlString;
+	document.getElementById('map').innerHTML = htmlString;
 }
 
 function geolocFail() {
-  fillMapInnerHTML('<div class=\"no-gps\">GPS non activé !</div><button class=\"refresh_button\" onclick=\"showPathToNearestCyclePark()\">Relancer</button>');
+	fillMapInnerHTML('<div class=\"no-gps\">GPS non activé !</div><button class=\"refresh_button\" onclick=\"showPathToNearestCyclePark()\">Relancer</button>');
 }
 
 function clearMap() {
-  fillMapInnerHTML('');
+	fillMapInnerHTML('');
 }
 
-async function showPathToNearestCycleParkWithPos(lat, lon) {
-  const currentPos = [lat, lon]; // current position
-  boundingBox = getBoundingBox(currentPos, SEARCH_DIST_KM); // 200m autour de moi
+async function showPathToNearestCycleParkWithPos(currentPos, destinationPos) {
+	//const currentPos = [lat, lon]; // current position
+	boundingBox = getBoundingBox(currentPos, SEARCH_DIST_KM); // 200m autour de moi
 
-  const overpassUrl = OVERPASS_API + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
-  const response = await fetch(overpassUrl);
-  const osmDataAsJson = await response.json(); // read response body and parse as JSON
+	const overpassUrl = OVERPASS_API + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
+	const response = await fetch(overpassUrl);
+	const osmDataAsJson = await response.json(); // read response body and parse as JSON
 
-  // pas de parking à vélo à 200m à la ronde, ben tant pis !
-  if (osmDataAsJson.elements.length == 0) {
-    const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * SEARCH_DIST_KM + 'm'
-    macarte = createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle);
-    return;
-  }
+	// pas de parking à vélo à 200m à la ronde, ben tant pis !
+	if (osmDataAsJson.elements.length == 0) {
+		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * SEARCH_DIST_KM + 'm'
+		macarte = createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle);
+		return;
+	}
 
-  urlTabForCycleParkPath = [];
+	urlTabForCycleParkPath = [];
 
-  // on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.
-  shortestParkingNodeDict = {};
-  osmDataAsJson.elements.forEach((parkingNode, i) => {
-    shortestParkingNodeDict[haversineInMeters(currentPos[0], currentPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
-  });
+	// on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.
+	shortestParkingNodeDict = {};
+	osmDataAsJson.elements.forEach((parkingNode, i) => {
+		shortestParkingNodeDict[haversineInMeters(currentPos[0], currentPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
+	});
 
-  let items = Object.keys(shortestParkingNodeDict).map((key) => [key, shortestParkingNodeDict[key]]);
+	let items = Object.keys(shortestParkingNodeDict).map((key) => [key, shortestParkingNodeDict[key]]);
 
-  // Sort the array based on the first element
-  items.sort((first, second) => second[0] - first[0]);
+	// Sort the array based on the first element
+	items.sort((first, second) => second[0] - first[0]);
 
-  // Create a new array with only the NUMBER_OF_COMPUTED_PATH last items
-  listOfShortestParkNode = [];
-  const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
+	// Create a new array with only the NUMBER_OF_COMPUTED_PATH last items
+	listOfShortestParkNode = [];
+	const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
 
-  // create empty map
-  macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
+	// create empty map
+	macarte = createEmptyMapWithCurrentPos(macarte, currentPos)
 
-  // get the last maxNbOfPark element
-  for (parkingNode of items.slice(-maxNbOfPark)) {
-    const openrouteUrl = OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat
-    const response = await fetch(openrouteUrl);
-    const osmDataAsJson = await response.json(); // read response body and parse as JSON
-    //const dist = osmDataAsJson[0].features[0].properties.summary.distance;
-    const dist = osmDataAsJson.features[0].properties.summary.distance;
-    const nearestPath = osmDataAsJson.features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
-    const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
-    const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
-    const markerCyclePark = L.marker(cycleParkPos, {
-      icon: BICYCLE_PARKING_ICON, polyline: polyline, distance:dist
-    }).addTo(macarte);
-    const CycleParkTitle = 'Distance : ' + dist + 'm';
-    const offsetPopup = L.point(0, -10);
-    markerCyclePark.bindPopup(CycleParkTitle, {
-      'offset': offsetPopup
-    });
+	// get the last maxNbOfPark element
+	for (parkingNode of items.slice(-maxNbOfPark)) {
+		const openrouteUrl = OPENROUTE_API + currentPos[1] + ',' + currentPos[0] + '&end=' + parkingNode[1].lon + ',' + parkingNode[1].lat
+		const response = await fetch(openrouteUrl);
+		const osmDataAsJson = await response.json(); // read response body and parse as JSON
+		//const dist = osmDataAsJson[0].features[0].properties.summary.distance;
+		const dist = osmDataAsJson.features[0].properties.summary.distance;
+		const nearestPath = osmDataAsJson.features[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
+		const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
+		const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
+		const markerCyclePark = L.marker(cycleParkPos, {
+			icon: BICYCLE_PARKING_ICON,
+			polyline: polyline,
+			distance: dist
+		}).addTo(macarte);
+		const CycleParkTitle = 'Distance : ' + dist + 'm';
+		const offsetPopup = L.point(0, -10);
+		markerCyclePark.bindPopup(CycleParkTitle, {
+			'offset': offsetPopup
+		});
 
-    markerCyclePark.on("click", e => {
-      // on commence par virer tous les polylines
-      markerlist.forEach( item => {
-        if (macarte.hasLayer(item.options.polyline)) {
-          macarte.removeLayer(item.options.polyline)
-        }
-      });
-      // on ajoute ensuite le layer et on tente de le centrer
-      macarte.addLayer(e.target.options.polyline)
-      macarte.flyToBounds(e.target.options.polyline.getBounds(), {padding: [100,100]});
-      e.target.openPopup()
+		markerCyclePark.on("click", e => {
+			// on commence par virer tous les polylines
+			markerlist.forEach(item => {
+				if (macarte.hasLayer(item.options.polyline)) {
+					macarte.removeLayer(item.options.polyline)
+				}
+			});
+			// on ajoute ensuite le layer et on tente de le centrer
+			macarte.addLayer(e.target.options.polyline)
+			macarte.flyToBounds(e.target.options.polyline.getBounds(), {
+				padding: [100, 100]
+			});
+			e.target.openPopup()
 
-    });
-    markerlist.push(markerCyclePark)
-  }
-  // sort marker list
-  markerlist.sort((a, b) => a.options.distance - b.options.distance)
-  // show shortest path
-  macarte.addLayer(markerlist[0].options.polyline)
-  macarte.flyToBounds(markerlist[0].options.polyline.getBounds(), {padding: [100,100]});
-  markerlist[0].openPopup()
+		});
+		markerlist.push(markerCyclePark)
+	}
+	// sort marker list
+	markerlist.sort((a, b) => a.options.distance - b.options.distance)
+	// show shortest path
+	macarte.addLayer(markerlist[0].options.polyline)
+	macarte.flyToBounds(markerlist[0].options.polyline.getBounds(), {
+		padding: [100, 100]
+	});
+	markerlist[0].openPopup()
 }
 
 
 function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
-  // Clean all
-  clearMap();
+	// Clean all
+	clearMap();
 
-  // put mini zoom to avoid error when fitbounds + zoomOut
-  macarte = L.map('map').setView(currentPos, 17);
+	// put mini zoom to avoid error when fitbounds + zoomOut
+	macarte = L.map('map').setView(currentPos, 17);
 
-  // Leaflet ne récupère pas les cartes (tiles) sur un serveur par défaut. Nous devons lui préciser où nous souhaitons les récupérer. Ici, openstreetmap.fr
-  L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-    // Il est toujours bien de laisser le lien vers la source des données
-    attribution: 'données © <a href="//osm.org/copyright">OpenStreetMap</a>/ODbL - rendu <a href="//openstreetmap.fr">OSM France</a>',
-    minZoom: 1,
-    maxZoom: 20
-  }).addTo(macarte);
+	// Leaflet ne récupère pas les cartes (tiles) sur un serveur par défaut. Nous devons lui préciser où nous souhaitons les récupérer. Ici, openstreetmap.fr
+	L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+		// Il est toujours bien de laisser le lien vers la source des données
+		attribution: 'données © <a href="//osm.org/copyright">OpenStreetMap</a>/ODbL - rendu <a href="//openstreetmap.fr">OSM France</a>',
+		minZoom: 1,
+		maxZoom: 20
+	}).addTo(macarte);
 
-  L.easyButton('<img class="left-button" src="reload.svg" >', (btn, map) => {
-      markerlist.forEach( item => {
-      if (macarte.hasLayer(item.options.polyline)) {
-        macarte.removeLayer(item.options.polyline)
-      }});
-      macarte.remove();
-      showPathToNearestCyclePark()
-  }).addTo( macarte )
+	const button = L.easyButton('<img class="left-button" src="reload.svg" >', (btn, map) => {
+		// remove all layer
+		macarte.eachLayer(layer => {
+			macarte.removeLayer(layer);
+		});
+		macarte.remove();
+		showPathToNearestCyclePark()
+	}).addTo(macarte)
 
-  let marker = L.marker(currentPos).addTo(macarte);
-  if (popupTitle.length > 0)
-    marker.bindPopup(popupTitle).openPopup();
-  return macarte;
+	let marker = L.marker(currentPos).addTo(macarte);
+	if (popupTitle.length > 0)
+		marker.bindPopup(popupTitle).openPopup();
+	return macarte;
 }
 
 // ------------------------------------------
@@ -171,11 +179,11 @@ function createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle = '') {
 // ------------------------------------------
 
 function checkStatus(response) {
-  if (response.ok) {
-    return Promise.resolve(response);
-  } else {
-    return Promise.reject(new Error(response.statusText));
-  }
+	if (response.ok) {
+		return Promise.resolve(response);
+	} else {
+		return Promise.reject(new Error(response.statusText));
+	}
 }
 
 /**
@@ -183,7 +191,7 @@ function checkStatus(response) {
  * @return json result
  */
 function parseJSON(response) {
-  return response.json();
+	return response.json();
 }
 
 
@@ -199,58 +207,58 @@ function parseJSON(response) {
  * @author Alex Salisbury
  */
 function getBoundingBox(centerPoint, distance) {
-  let minLat, maxLat, minLon, maxLon, deltaLon;
-  if (distance < 0) {
-    return 'Illegal arguments';
-  }
-  // helper functions (degrees<–>radians)
-  Number.prototype.degToRad = function() {
-    return this * (Math.PI / 180);
-  };
-  Number.prototype.radToDeg = function() {
-    return (180 * this) / Math.PI;
-  };
-  // coordinate limits
-  const MIN_LAT = (-90).degToRad();
-  const MAX_LAT = (90).degToRad();
-  const MIN_LON = (-180).degToRad();
-  const MAX_LON = (180).degToRad();
-  // Earth's radius (km)
-  const R = 6378.1;
-  // angular distance in radians on a great circle
-  const radDist = distance / R;
-  // center point coordinates (deg)
-  const degLat = centerPoint[0];
-  const degLon = centerPoint[1];
-  // center point coordinates (rad)
-  const radLat = degLat.degToRad();
-  const radLon = degLon.degToRad();
-  // minimum and maximum latitudes for given distance
-  minLat = radLat - radDist;
-  maxLat = radLat + radDist;
-  // minimum and maximum longitudes for given distance
-  minLon = void 0;
-  maxLon = void 0;
-  // define deltaLon to help determine min and max longitudes
-  deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
-  if (minLat > MIN_LAT && maxLat < MAX_LAT) {
-    minLon = radLon - deltaLon;
-    maxLon = radLon + deltaLon;
-    if (minLon < MIN_LON) {
-      minLon = minLon + 2 * Math.PI;
-    }
-    if (maxLon > MAX_LON) {
-      maxLon = maxLon - 2 * Math.PI;
-    }
-  }
-  // a pole is within the given distance
-  else {
-    minLat = Math.max(minLat, MIN_LAT);
-    maxLat = Math.min(maxLat, MAX_LAT);
-    minLon = MIN_LON;
-    maxLon = MAX_LON;
-  }
-  return [
+	let minLat, maxLat, minLon, maxLon, deltaLon;
+	if (distance < 0) {
+		return 'Illegal arguments';
+	}
+	// helper functions (degrees<–>radians)
+	Number.prototype.degToRad = function () {
+		return this * (Math.PI / 180);
+	};
+	Number.prototype.radToDeg = function () {
+		return (180 * this) / Math.PI;
+	};
+	// coordinate limits
+	const MIN_LAT = (-90).degToRad();
+	const MAX_LAT = (90).degToRad();
+	const MIN_LON = (-180).degToRad();
+	const MAX_LON = (180).degToRad();
+	// Earth's radius (km)
+	const R = 6378.1;
+	// angular distance in radians on a great circle
+	const radDist = distance / R;
+	// center point coordinates (deg)
+	const degLat = centerPoint[0];
+	const degLon = centerPoint[1];
+	// center point coordinates (rad)
+	const radLat = degLat.degToRad();
+	const radLon = degLon.degToRad();
+	// minimum and maximum latitudes for given distance
+	minLat = radLat - radDist;
+	maxLat = radLat + radDist;
+	// minimum and maximum longitudes for given distance
+	minLon = void 0;
+	maxLon = void 0;
+	// define deltaLon to help determine min and max longitudes
+	deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+	if (minLat > MIN_LAT && maxLat < MAX_LAT) {
+		minLon = radLon - deltaLon;
+		maxLon = radLon + deltaLon;
+		if (minLon < MIN_LON) {
+			minLon = minLon + 2 * Math.PI;
+		}
+		if (maxLon > MAX_LON) {
+			maxLon = maxLon - 2 * Math.PI;
+		}
+	}
+	// a pole is within the given distance
+	else {
+		minLat = Math.max(minLat, MIN_LAT);
+		maxLat = Math.min(maxLat, MAX_LAT);
+		minLon = MIN_LON;
+		maxLon = MAX_LON;
+	}
+	return [
     minLon.radToDeg(),
     minLat.radToDeg(),
     maxLon.radToDeg(),
@@ -260,17 +268,17 @@ function getBoundingBox(centerPoint, distance) {
 
 
 function haversineInMeters() {
-  const radians = Array.prototype.map.call(arguments, function(deg) {
-    return deg / 180.0 * Math.PI;
-  });
-  const lat1 = radians[0],
-    lon1 = radians[1],
-    lat2 = radians[2],
-    lon2 = radians[3];
-  const R = 6372.8; // km
-  const dLat = lat2 - lat1;
-  const dLon = lon2 - lon1;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-  const c = 2 * Math.asin(Math.sqrt(a));
-  return 1000 * R * c;
+	const radians = Array.prototype.map.call(arguments, function (deg) {
+		return deg / 180.0 * Math.PI;
+	});
+	const lat1 = radians[0],
+		lon1 = radians[1],
+		lat2 = radians[2],
+		lon2 = radians[3];
+	const R = 6372.8; // km
+	const dLat = lat2 - lat1;
+	const dLon = lon2 - lon1;
+	const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+	const c = 2 * Math.asin(Math.sqrt(a));
+	return 1000 * R * c;
 }
