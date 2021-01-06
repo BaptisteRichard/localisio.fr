@@ -30,7 +30,7 @@ html, body {
 
 #selectTarget {
 //  display: flex;
-  flex-direction: row;
+  flex-flow: wrap;
   justify-content: space-around;
   width: 100vw;
   height: 100%;

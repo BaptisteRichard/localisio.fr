@@ -19,8 +19,11 @@
 
 	<div id="selectTarget" style="display : flex;">
 
-          <img class="myButton" src="images/postbox.svg" onclick="setTarget('node[%22amenity%22=%22post_box%22]')" />
-          <img class="myButton" src="images/bicyleparking.svg" onclick="setTarget('node[%22amenity%22=%22bicycle_parking%22]')" />
+          <img class="myButton" src="images/postbox.svg" onclick="setTarget(this.src'node[%22amenity%22=%22post_box%22]')" />
+          <img class="myButton" src="images/bicyleparking.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22bicycle_parking%22]')" />
+          <img class="myButton" src="images/parkingticket.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22vending_machine%22][%22vending%22=%22parking_tickets%22]')" />
+          <img class="myButton" src="images/atm.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22atm%22]')" />
+          <img class="myButton" src="images/bench.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22bench%22]')" />
 	
 
 	</div>

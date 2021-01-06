@@ -23,6 +23,7 @@ var markerlist = []
 var center_marker = null
 
 var target='node[%22amenity%22=%22bicycle_parking%22]';
+var iconURL='images/bicyleparking.svg';
 
 /**
  * @description
@@ -78,8 +79,9 @@ function clear_all_map() {
 	markerlist = []
 }
 
-function setTarget(t){
+function setTarget(i,t){
   target=t;
+  iconURL=i;
   hide_show('selectTarget');
   hide_show('menu');
 }
@@ -184,8 +186,8 @@ async function target_near_me() {
  *   Trace au max 5 routes pour y aller.
  * @author Pierre Adam
  */
-async function showPathToNearestTarget(position, vehicle='walking') {
-	boundingBox = getBoundingBox(position, SEARCH_DIST_KM); // 200m autour de la destination
+async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST_KM) {
+	boundingBox = getBoundingBox(position, searchDist); // 200m autour de la destination
 
 	const overpassUrl = OVERPASS_API + target + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
 	const response = await fetch(overpassUrl);
@@ -193,10 +195,15 @@ async function showPathToNearestTarget(position, vehicle='walking') {
 
 	// pas de parking à vélo à 200m à la ronde, ben tant pis !
 	if (osmDataAsJson.elements.length == 0) {
-		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * SEARCH_DIST_KM + 'm'
+           if(searchDist == SEARCH_DIST_KM){
+            //if first try yields no results, double the search radius once and try again
+            return showPathToNearestTarget(position, vehicle, SEARCH_DIST_KM*2);
+           }else{
+		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * searchDist + 'm'
 		let marker = L.marker(position).addTo(map).bindPopup(popupTitle).openPopup();
 		map.setView(position, 17);
-		return;
+  		return;
+           }
 	}
 
 	// on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.
@@ -227,7 +234,10 @@ async function showPathToNearestTarget(position, vehicle='walking') {
 		const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
 		const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
 		const markerCyclePark = L.marker(cycleParkPos, {
-//			icon: BICYCLE_PARKING_ICON,
+			icon: L.icon({
+        				iconUrl: iconURL,
+        				iconSize: [32, 32], // size of the icon
+					}),
 			polyline: polyline,
 			distance: parkingNode[0]
 		}).addTo(map);
