@@ -16,10 +16,18 @@
 <!--<body onload="getLocation()"> -->
 <body onload="initialize()">
 	<div id="map"></div>
-	<div id="menu">
+
+	<div id="selectTarget" style="display : flex;">
+
+          <img class="myButton" src="images/postbox.svg" onclick="setTarget('node[%22amenity%22=%22post_box%22]')" />
+          <img class="myButton" src="images/bicyleparking.svg" onclick="setTarget('node[%22amenity%22=%22bicycle_parking%22]')" />
+	
+
+	</div>
+	<div id="menu" style="display:none;">
 		<!-- Ici s'affichera la carte mais en attendant, on met un gif-->
-      <img class="myButton" src="gps.svg" onclick="cycle_park_near_me()" />
-      <img class="myButton" src="map.svg" onclick="cycle_park_near_pos()" />
+      <img class="myButton" src="images/gps.svg" onclick="target_near_me()" />
+      <img class="myButton" src="images/map.svg" onclick="target_near_pos()" />
 	</div>
 
 </body>

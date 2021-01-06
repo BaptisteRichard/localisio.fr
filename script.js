@@ -1,16 +1,8 @@
-const API_OPENROUTE_KEY = '5b3ce3597851110001cf6248cd3d2eb78aa149a3bbde26f73a2b5dfd';
-const OVERPASS_API = 'https://z.overpass-api.de/api/interpreter?data=[out:json];node[%22amenity%22=%22bicycle_parking%22]'
+
+const OVERPASS_API = 'https://z.overpass-api.de/api/interpreter?data=[out:json];'
 const SEARCH_DIST_KM = 0.25
 const NUMBER_OF_COMPUTED_PATH = 5
-const OPENROUTE_API = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
 
-const API_MAPBOX_KEY = "pk.eyJ1IjoiemFzc2VuaGF1cyIsImEiOiJja2U5enhtZ3owNXZrMzRuemhpN25yZmkzIn0.KkggELpXo_BOKu7IwXK4DA"
-const MAPBOX_API_CYCLING = "https://api.mapbox.com/directions/v5/mapbox/cycling/"
-const MAPBOX_API_WALKING = "https://api.mapbox.com/directions/v5/mapbox/walking/"
-const MAPBOX_PARAMETERS = "?access_token=" + API_MAPBOX_KEY + "&geometries=geojson"
-
-/*const OPENROUTE_API_WALK = 'https://api.openrouteservice.org/v2/directions/foot-walking?api_key=' + API_OPENROUTE_KEY + '&start='
-const OPENROUTE_API_CYCLE = 'https://api.openrouteservice.org/v2/directions/cycling-road?api_key=' + API_OPENROUTE_KEY + '&start='*/
 
 const BICYCLE_PARKING_ICON = L.icon({
 	iconUrl: '240px-Parking-bicycle-16.svg.png',
@@ -30,6 +22,8 @@ var valid_button = null;
 var markerlist = []
 var center_marker = null
 
+var target='node[%22amenity%22=%22bicycle_parking%22]';
+
 /**
  * @description
  *   Lance la demande de localisation pour la session en cours
@@ -38,8 +32,9 @@ var center_marker = null
  */
 function initialize() {
 	document.getElementById('map').innerHTML = ""
-	let menu_id = document.getElementById("menu");
-	menu_id.style.display = "flex";
+
+//	let menu_id = document.getElementById("selectTarget");
+//	menu_id.style.display = "flex";
 
 	if (navigator.geolocation) {
 		const location_timeout = setTimeout("geolocFail()", 5000);
@@ -53,7 +48,7 @@ function initialize() {
 			clearTimeout(location_timeout);
 			lat_from = position.coords.latitude;
 			lon_from = position.coords.longitude;
-			showMap([lat_from, lon_from])
+			showMap([lat_from, lon_from]);
 		}, function (error) {
 			clearTimeout(location_timeout);
 			geolocFail();
@@ -79,8 +74,14 @@ function clear_all_map() {
 	});
 	valid_button.button.style.display = "none"
 	map.setView([lat_from, lon_from], 17);
-	hide_show()
+	hide_show('selectTarget');
 	markerlist = []
+}
+
+function setTarget(t){
+  target=t;
+  hide_show('selectTarget');
+  hide_show('menu');
 }
 
 /**
@@ -103,8 +104,8 @@ function showMap(currentPos) {
 	}).addTo(map)
 
 	valid_button = L.easyButton('<img class="valid_button" src="check.svg" >', (btn, map) => {
-		const destinationPos = [map.getCenter().lat, map.getCenter().lng]
-		showPathToNearestCycleParkWithPos([lat_from, lon_from], destinationPos, false)
+		const position = [map.getCenter().lat, map.getCenter().lng]
+		showPathToNearestTarget(position, 'cycling')
 		map.removeLayer(center_marker)
 		btn.button.style.display = "none"
 	}).addTo(map)
@@ -118,9 +119,14 @@ function showMap(currentPos) {
  * @author Pierre Adam
  */
 function geolocFail() {
-	let menu_id = document.getElementById("menu");
-	menu_id.style.display = "none";
-	document.getElementById('map').innerHTML = '<div class=\"no-gps\">GPS non activé !</div><div id=\"menu\"><img class=\"myButton refresh_button\" src=\"reload.svg\" onclick=\"initialize()\" /></div>';
+
+		lat_from = 45.1846447;
+		lon_from = 5.7155082 ;
+		showMap([lat_from, lon_from]);
+
+//	let menu_id = document.getElementById("menu");
+//	menu_id.style.display = "none";
+//	document.getElementById('map').innerHTML = '<div class=\"no-gps\">GPS non activé !</div><div id=\"menu\"><img class=\"myButton refresh_button\" src=\"reload.svg\" onclick=\"initialize()\" /></div>';
 }
 
 /**
@@ -128,9 +134,9 @@ function geolocFail() {
  *   Affiche / cache les boutton du menu
  * @author Pierre Adam
  */
-function hide_show() {
+function hide_show(id) {
 	//document.getElementById('map').innerHTML = ""
-	let menu_id = document.getElementById("menu");
+	let menu_id = document.getElementById(id);
 	if (menu_id.style.display != "none") {
 		menu_id.style.display = "none";
 	} else {
@@ -138,14 +144,15 @@ function hide_show() {
 	}
 }
 
+
 /**
  * @description
  *   Ouvre la carte pour la selection du point de destination et lance le calcul
  *   de la position actuelle vers la destination demandee
  * @author Pierre Adam
  */
-async function cycle_park_near_pos() {
-	hide_show()
+async function target_near_pos() {
+	hide_show('menu')
 	center_marker = L.marker(map.getCenter()).addTo(map);
 	const currentPos = [lat_from, lon_from]
 	map.on('drag', function (e) {
@@ -162,10 +169,10 @@ async function cycle_park_near_pos() {
  *   Lance le calcul pour la recherche d'arceaux autour de soi
  * @author Pierre Adam
  */
-async function cycle_park_near_me() {
-	hide_show()
+async function target_near_me() {
+	hide_show('menu')
 	const currentPos = [lat_from, lon_from]
-	await showPathToNearestCycleParkWithPos(currentPos, currentPos, true)
+	await showPathToNearestTarget(currentPos, 'walking')
 }
 
 /**
@@ -177,26 +184,25 @@ async function cycle_park_near_me() {
  *   Trace au max 5 routes pour y aller.
  * @author Pierre Adam
  */
-async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isWalking = true) {
-	boundingBox = getBoundingBox(destinationPos, SEARCH_DIST_KM); // 200m autour de la destination
+async function showPathToNearestTarget(position, vehicle='walking') {
+	boundingBox = getBoundingBox(position, SEARCH_DIST_KM); // 200m autour de la destination
 
-	const overpassUrl = OVERPASS_API + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
+	const overpassUrl = OVERPASS_API + target + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
 	const response = await fetch(overpassUrl);
 	const osmDataAsJson = await response.json(); // read response body and parse as JSON
 
 	// pas de parking à vélo à 200m à la ronde, ben tant pis !
 	if (osmDataAsJson.elements.length == 0) {
 		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * SEARCH_DIST_KM + 'm'
-		//macarte = createEmptyMapWithCurrentPos(macarte, currentPos, popupTitle);
-		let marker = L.marker(destinationPos).addTo(map).bindPopup(popupTitle).openPopup();
-		map.setView(destinationPos, 17);
+		let marker = L.marker(position).addTo(map).bindPopup(popupTitle).openPopup();
+		map.setView(position, 17);
 		return;
 	}
 
 	// on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.
 	shortestParkingNodeDict = {};
 	osmDataAsJson.elements.forEach((parkingNode, i) => {
-		shortestParkingNodeDict[haversineInMeters(destinationPos[0], destinationPos[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
+		shortestParkingNodeDict[haversineInMeters(position[0], position[1], parkingNode.lat, parkingNode.lon)] = parkingNode;
 	});
 
 	let items = Object.keys(shortestParkingNodeDict).map(key => [key, shortestParkingNodeDict[key]]);
@@ -209,13 +215,11 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isW
 	const maxNbOfPark = Math.min(NUMBER_OF_COMPUTED_PATH, items.length);
 
 	// add marker on current position
-	let marker = L.marker(currentPos).addTo(map);
-
-	const mapboxurl_engine = (isWalking) ? MAPBOX_API_WALKING : MAPBOX_API_CYCLING;
+	let marker = L.marker(position).addTo(map);
 
 	// get the last maxNbOfPark element
 	for (parkingNode of items.slice(-maxNbOfPark)) {
-		const mapboxUrl = mapboxurl_engine + currentPos[1] + ',' + currentPos[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat + MAPBOX_PARAMETERS;
+		const mapboxUrl = 'http://osmsearch.globadis.com/mapbox.php?vehicle='+vehicle+'&position=' + position[1] + ',' + position[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat;
 		const response = await fetch(mapboxUrl);
 		const osmDataAsJson = await response.json(); // read response body and parse as JSON
 		const dist = osmDataAsJson.routes[0].distance;
@@ -223,7 +227,7 @@ async function showPathToNearestCycleParkWithPos(currentPos, destinationPos, isW
 		const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
 		const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
 		const markerCyclePark = L.marker(cycleParkPos, {
-			icon: BICYCLE_PARKING_ICON,
+//			icon: BICYCLE_PARKING_ICON,
 			polyline: polyline,
 			distance: parkingNode[0]
 		}).addTo(map);
