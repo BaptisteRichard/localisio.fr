@@ -11,4 +11,4 @@ Currently allows searching for :
 - Drinking water points
 - Glass recycling stations
 
-Heavily based on Piotr's CyclParkSearch app
+Heavily based on Piotr's CycleParkSearch app : https://play.google.com/store/apps/details?id=com.piotrcyclepark
