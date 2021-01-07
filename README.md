@@ -1,4 +1,4 @@
-# OsmSearch
+#OsmSearch
 
 Search nearest public amenities around you or around a selected point using OverPass, OpenStretMap and mapbox for directions.
 
