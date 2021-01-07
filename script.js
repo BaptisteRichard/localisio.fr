@@ -15,6 +15,9 @@ const POLYLINE_OPTIONS = {
 	opacity: 0.7
 };
 
+const lat_default = 45.1877535;
+const lon_default = 5.7237598;
+
 var lat_from = 0;
 var lon_from = 0;
 var map = null;
@@ -107,7 +110,7 @@ function showMap(currentPos) {
 
 	valid_button = L.easyButton('<img class="valid_button" src="check.svg" >', (btn, map) => {
 		const position = [map.getCenter().lat, map.getCenter().lng]
-		showPathToNearestTarget(position, 'cycling')
+		showPathToNearestTarget(position, 'walking')
 		map.removeLayer(center_marker)
 		btn.button.style.display = "none"
 	}).addTo(map)
@@ -122,13 +125,18 @@ function showMap(currentPos) {
  */
 function geolocFail() {
 
-		lat_from = 45.1846447;
-		lon_from = 5.7155082 ;
-		showMap([lat_from, lon_from]);
+	lat_from = lat_default;
+	lon_from = lon_default ;
+	showMap([lat_from, lon_from]);
 
-//	let menu_id = document.getElementById("menu");
-//	menu_id.style.display = "none";
-//	document.getElementById('map').innerHTML = '<div class=\"no-gps\">GPS non activé !</div><div id=\"menu\"><img class=\"myButton refresh_button\" src=\"reload.svg\" onclick=\"initialize()\" /></div>';
+	warn = document.getElementById("noGPS");
+        warn.style.display="block";
+        setTimeout(function(){ 
+          warn.classList.add('is-active');
+        },1500);
+
+
+	document.getElementById("here").style.display = "none";
 }
 
 /**
@@ -177,6 +185,11 @@ async function target_near_me() {
 	await showPathToNearestTarget(currentPos, 'walking')
 }
 
+
+function createButton(label, container) {
+}
+
+
 /**
  * @param {Array} currentPos position actuelle
  * @param {Array} destinationPos position de la destination
@@ -195,15 +208,36 @@ async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST
 
 	// pas de parking à vélo à 200m à la ronde, ben tant pis !
 	if (osmDataAsJson.elements.length == 0) {
-           if(searchDist == SEARCH_DIST_KM){
-            //if first try yields no results, double the search radius once and try again
-            return showPathToNearestTarget(position, vehicle, SEARCH_DIST_KM*2);
-           }else{
-		const popupTitle = 'Aucun parking à vélo<br>à moins de ' + 1000 * searchDist + 'm'
-		let marker = L.marker(position).addTo(map).bindPopup(popupTitle).openPopup();
-		map.setView(position, 17);
-  		return;
-           }
+		if(searchDist <= SEARCH_DIST_KM*8){
+			var container = L.DomUtil.create('div'); 
+			L.DomUtil.create('p', '', container).innerHTML= 'No such thing under ' + 1000 * searchDist + 'm, try searching up to  '+2000 * searchDist+'m ? ';
+
+			retry_button = L.DomUtil.create('img', '', container);
+			retry_button.setAttribute('src', 'check.svg');
+			retry_button.setAttribute('width', '20');
+			retry_button.addEventListener('click', () => { showPathToNearestTarget(position, vehicle, searchDist*2) });
+			container.appendChild(retry_button);
+
+			cancel_button = L.DomUtil.create('img', '', container);
+			cancel_button.setAttribute('src', 'back.svg');
+			cancel_button.setAttribute('width', '20');
+			cancel_button.style.float = 'right';
+			cancel_button.addEventListener('click', () => { clear_all_map(); });
+			container.appendChild(cancel_button);
+
+			var popup = L.popup().setContent(container);
+
+			let marker = L.marker(position).addTo(map).bindPopup(popup).openPopup();
+			map.setView(position, 17);
+			return;
+		}else{
+			const popupTitle = 'No such thing<br>under ' + 1000 * searchDist + 'm ';
+			let marker = L.marker(position).addTo(map).bindPopup(popup).openPopup();
+			map.setView(position, 17);
+	  		return;
+		}
+
+
 	}
 
 	// on ne garde que les NUMBER_OF_COMPUTED_PATH parkings vélo les plus proches (vol d'oiseau), histoire de ne pas calculer X fois des chemins le plus court.

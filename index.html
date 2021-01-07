@@ -17,9 +17,11 @@
 <body onload="initialize()">
 	<div id="map"></div>
 
+        <div id="noGPS" class="fadein">GPS disabled, setting you <i>somewhere</i></div>
+
 	<div id="selectTarget" style="display : flex;">
 
-          <img class="myButton" src="images/postbox.svg" onclick="setTarget(this.src'node[%22amenity%22=%22post_box%22]')" />
+          <img class="myButton" src="images/postbox.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22post_box%22]')" />
           <img class="myButton" src="images/bicyleparking.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22bicycle_parking%22]')" />
           <img class="myButton" src="images/parkingticket.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22vending_machine%22][%22vending%22=%22parking_tickets%22]')" />
           <img class="myButton" src="images/atm.svg" onclick="setTarget(this.src,'node[%22amenity%22=%22atm%22]')" />
@@ -29,8 +31,11 @@
 	</div>
 	<div id="menu" style="display:none;">
 		<!-- Ici s'affichera la carte mais en attendant, on met un gif-->
-      <img class="myButton" src="images/gps.svg" onclick="target_near_me()" />
-      <img class="myButton" src="images/map.svg" onclick="target_near_pos()" />
+      <img id='here' class="myButton" src="images/here.svg" onclick="target_near_me()" />
+      <img class="myButton" src="images/selectPoint.svg" onclick="target_near_pos()" />
+      <!--
+	 <img class="myButton" src="images/selectPath.svg" onclick="target_near_pos()" />
+-->
 	</div>
 
 </body>

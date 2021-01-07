@@ -28,6 +28,33 @@ html, body {
   background-color: rgba(200, 200, 200, 0.7);
 }
 
+.fadein {
+  opacity: 1;
+}
+.fadein.is-active {
+  transition: all ease 2s;
+  opacity: 0 ;
+}
+
+#noGPS {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;  
+    color: #a94442;
+    background-color: #f2dede;
+    border-color: #ebccd1;
+    display: none;
+    position : fixed;
+    top : 45%;
+    margin-left: auto;
+    margin-right: auto;
+    left: 0;
+    right: 0;
+    text-align: center;
+    z-index : 15;
+}
+
 #selectTarget {
 //  display: flex;
   flex-flow: wrap;
