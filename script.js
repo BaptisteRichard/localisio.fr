@@ -104,11 +104,11 @@ function showMap(currentPos) {
 		maxZoom: 20
 	}).addTo(map);
 
-	L.easyButton('<img class="back_button" src="back.svg" >', (btn, map) => {
+	L.easyButton('<img class="back_button" src="images/back.svg" >', (btn, map) => {
 		clear_all_map()
 	}).addTo(map)
 
-	valid_button = L.easyButton('<img class="valid_button" src="check.svg" >', (btn, map) => {
+	valid_button = L.easyButton('<img class="valid_button" src="images/check.svg" >', (btn, map) => {
 		const position = [map.getCenter().lat, map.getCenter().lng]
 		showPathToNearestTarget(position, 'walking')
 		map.removeLayer(center_marker)
@@ -212,18 +212,19 @@ async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST
 			var container = L.DomUtil.create('div'); 
 			L.DomUtil.create('p', '', container).innerHTML= 'No such thing under ' + 1000 * searchDist + 'm, try searching up to  '+2000 * searchDist+'m ? ';
 
+			cancel_button = L.DomUtil.create('img', '', container);
+			cancel_button.setAttribute('src', 'images/back.svg');
+			cancel_button.setAttribute('width', '20');
+			cancel_button.addEventListener('click', () => { clear_all_map(); });
+			container.appendChild(cancel_button);
+
 			retry_button = L.DomUtil.create('img', '', container);
-			retry_button.setAttribute('src', 'check.svg');
+			retry_button.setAttribute('src', 'images/check.svg');
 			retry_button.setAttribute('width', '20');
+			retry_button.style.float = 'right';
 			retry_button.addEventListener('click', () => { showPathToNearestTarget(position, vehicle, searchDist*2) });
 			container.appendChild(retry_button);
 
-			cancel_button = L.DomUtil.create('img', '', container);
-			cancel_button.setAttribute('src', 'back.svg');
-			cancel_button.setAttribute('width', '20');
-			cancel_button.style.float = 'right';
-			cancel_button.addEventListener('click', () => { clear_all_map(); });
-			container.appendChild(cancel_button);
 
 			var popup = L.popup().setContent(container);
 
