@@ -116,7 +116,7 @@ function showMap(currentPos) {
 	}).addTo(map);
 
 	L.easyButton('<img class="back_button" src="images/back.svg" >', (btn, map) => {
-		clear_all_map()
+		goBack();
 	}).addTo(map)
 
 	valid_button = L.easyButton('<img class="valid_button" src="images/check.svg" >', (btn, map) => {
