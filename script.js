@@ -25,6 +25,8 @@ var valid_button = null;
 var markerlist = []
 var center_marker = null
 
+var stage=0; // 0 : loading page / 1: target selected / 2 : position selected -- map drawn 
+
 var target='node[%22amenity%22=%22bicycle_parking%22]';
 var iconURL='images/bicyleparking.svg';
 
@@ -77,9 +79,17 @@ function clear_all_map() {
 		}
 	});
 	valid_button.button.style.display = "none"
-	map.setView([lat_from, lon_from], 17);
-	hide_show('selectTarget');
+//	map.setView([lat_from, lon_from], 17);
+	map.setZoom(17);
 	markerlist = []
+}
+
+function goBack(){
+  if(stage == 0 ) { return; }
+  hide_show('menu') ;
+  clear_all_map();
+  if(stage == 1){ hide_show('selectTarget') ; }
+  stage --;
 }
 
 function setTarget(i,t){
@@ -87,6 +97,7 @@ function setTarget(i,t){
   iconURL=i;
   hide_show('selectTarget');
   hide_show('menu');
+  stage=1;
 }
 
 /**
@@ -163,6 +174,7 @@ function hide_show(id) {
  */
 async function target_near_pos() {
 	hide_show('menu')
+	stage =2 ; 
 	center_marker = L.marker(map.getCenter()).addTo(map);
 	const currentPos = [lat_from, lon_from]
 	map.on('drag', function (e) {
@@ -181,6 +193,7 @@ async function target_near_pos() {
  */
 async function target_near_me() {
 	hide_show('menu')
+	stage =2 ; 
 	const currentPos = [lat_from, lon_from]
 	await showPathToNearestTarget(currentPos, 'walking')
 }
