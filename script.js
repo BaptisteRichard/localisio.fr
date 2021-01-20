@@ -274,7 +274,7 @@ async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST
 
 	// get the last maxNbOfPark element
 	for (parkingNode of items.slice(-maxNbOfPark)) {
-		const mapboxUrl = 'https://osmsearch.globadis.com/mapbox.php?vehicle='+vehicle+'&position=' + position[1] + ',' + position[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat;
+		const mapboxUrl = 'mapbox.php?vehicle='+vehicle+'&position=' + position[1] + ',' + position[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat;
 		const response = await fetch(mapboxUrl);
 		const osmDataAsJson = await response.json(); // read response body and parse as JSON
 		const dist = osmDataAsJson.routes[0].distance;
