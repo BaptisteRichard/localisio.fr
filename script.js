@@ -15,8 +15,29 @@ const POLYLINE_OPTIONS = {
 	opacity: 0.7
 };
 
-const lat_default = 45.1877535;
-const lon_default = 5.7237598;
+
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
+
+//default coordinates : fixed to somewhere in Grenoble
+var lat_default = 45.1877535;
+var lon_default = 5.7237598;
+
+//If we have some coordinates in localstorage , use them instead
+if(localStorage.getItem('lat') != null){
+  lat_default=localStorage.getItem('lat');
+}
+if(localStorage.getItem('lon') != null){
+  lon_default=localStorage.getItem('lon');
+}
+
+//If some soordinates were passed in URL, use them instead of anything else
+if(urlParams.has('lat')){
+  lat_default=urlParams.get('lat');
+}
+if(urlParams.has('lon')){
+  lon_default=urlParams.get('lon');
+}
 
 var lat_from = 0;
 var lon_from = 0;
@@ -57,11 +78,11 @@ function initialize() {
 			showMap([lat_from, lon_from]);
 		}, function (error) {
 			clearTimeout(location_timeout);
-			geolocFail();
+			geolocFail(2);
 		}, geoOptions);
 	} else {
 		// Fallback for no geolocation
-		geolocFail();
+		geolocFail(1);
 	}
 }
 
@@ -134,7 +155,7 @@ function showMap(currentPos) {
  *   Affiche un message d'erreur signifiant que le GPS n'est pas activé.
  * @author Pierre Adam
  */
-function geolocFail() {
+function geolocFail(code=3) {
 
 	lat_from = lat_default;
 	lon_from = lon_default ;
@@ -144,7 +165,7 @@ function geolocFail() {
         warn.style.display="block";
         setTimeout(function(){ 
           warn.classList.add('is-active');
-        },1500);
+        },1500*code);
 
 
 	document.getElementById("here").style.display = "none";
@@ -177,6 +198,7 @@ async function target_near_pos() {
 	stage =2 ; 
 	center_marker = L.marker(map.getCenter()).addTo(map);
 	const currentPos = [lat_from, lon_from]
+
 	map.on('drag', function (e) {
 		center_marker.setLatLng(map.getCenter());
 	});
@@ -213,6 +235,9 @@ function createButton(label, container) {
  * @author Pierre Adam
  */
 async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST_KM) {
+	localStorage.setItem('lon',position[1]);
+	localStorage.setItem('lat',position[0]);
+
 	boundingBox = getBoundingBox(position, searchDist); // 200m autour de la destination
 
 	const overpassUrl = OVERPASS_API + target + '(' + boundingBox[1] + ',' + boundingBox[0] + ',' + boundingBox[3] + ',' + boundingBox[2] + ');out;';
