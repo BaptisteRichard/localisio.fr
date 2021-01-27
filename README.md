@@ -10,5 +10,6 @@ Currently allows searching for :
 - Benches
 - Drinking water points
 - Glass recycling stations
+- Public Toilets
 
 Heavily based on Piotr's CycleParkSearch app : https://play.google.com/store/apps/details?id=com.piotrcyclepark
