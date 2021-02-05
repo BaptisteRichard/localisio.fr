@@ -22,6 +22,8 @@ const urlParams = new URLSearchParams(queryString);
 //default coordinates : fixed to somewhere in Grenoble
 var lat_default = 45.1877535;
 var lon_default = 5.7237598;
+//default app version : 0 if app is not used
+var appVersion = 0; 
 
 //If we have some coordinates in localstorage , use them instead
 if(localStorage.getItem('lat') != null){
@@ -38,6 +40,11 @@ if(urlParams.has('lat')){
 if(urlParams.has('lon')){
   lon_default=urlParams.get('lon');
 }
+if(urlParams.has('app')){
+  appVersion=urlParams.get('lon');
+}
+
+
 
 var lat_from = 0;
 var lon_from = 0;
@@ -136,9 +143,11 @@ function showMap(currentPos) {
 		maxZoom: 20
 	}).addTo(map);
 
-	L.easyButton('<img class="back_button" src="images/back.svg" >', (btn, map) => {
-		goBack();
-	}).addTo(map)
+	if(appVersion > 0){ //app should not display back button here as it's embedded in title
+		L.easyButton('<img class="back_button" src="images/back.svg" >', (btn, map) => {
+			goBack();
+		}).addTo(map)
+	}
 
 	valid_button = L.easyButton('<img class="valid_button" src="images/check.svg" >', (btn, map) => {
 		const position = [map.getCenter().lat, map.getCenter().lng]
