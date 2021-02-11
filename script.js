@@ -174,7 +174,7 @@ function geolocFail(code=3) {
         warn.style.display="block";
         setTimeout(function(){ 
           warn.classList.add('is-active');
-        },1500*code);
+        },1500);
 
 
 	document.getElementById("here").style.display = "none";
