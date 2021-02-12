@@ -311,7 +311,7 @@ async function showPathToNearestTarget(position, vehicle, searchDist=SEARCH_DIST
 		const mapboxUrl = 'mapbox.php?vehicle='+vehicle+'&position=' + position[1] + ',' + position[0] + ';' + parkingNode[1].lon + ',' + parkingNode[1].lat;
 		const response = await fetch(mapboxUrl);
 		const osmDataAsJson = await response.json(); // read response body and parse as JSON
-		const dist = osmDataAsJson.routes[0].distance;
+		const dist = parseInt(osmDataAsJson.routes[0].distance,10);
 		const nearestPath = osmDataAsJson.routes[0].geometry.coordinates.map(elem => [elem[1], elem[0]])
 		const cycleParkPos = nearestPath[nearestPath.length - 1] // get the cycle park position (at the end of the path)
 		const polyline = new L.Polyline(nearestPath, POLYLINE_OPTIONS);
