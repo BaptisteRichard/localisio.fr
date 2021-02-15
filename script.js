@@ -149,11 +149,17 @@ function showMap(currentPos) {
 		}).addTo(map)
 	}
 
-	valid_button = L.easyButton('<img class="valid_button" src="images/check.svg" >', (btn, map) => {
-		const position = [map.getCenter().lat, map.getCenter().lng]
-		showPathToNearestTarget(position, 'walking')
-		map.removeLayer(center_marker)
-		btn.button.style.display = "none"
+	valid_button = L.easyButton({
+			id: 'valid_button',
+			states: [{
+				onClick: function(btn, map) {
+					const position = [map.getCenter().lat, map.getCenter().lng]
+					showPathToNearestTarget(position, 'walking')
+					map.removeLayer(center_marker)
+					btn.button.style.display = "none"
+					},
+				icon:'<img class="valid_button" src="images/check.svg" >' 
+				}]
 	}).addTo(map)
 	valid_button.button.style.display = "none"
 
